@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright 2016 Abram Hindle, https://github.com/tywtyw2002, and https://github.com/treedust
+# Copyright 2022 Abram Hindle, https://github.com/tywtyw2002, https://github.com/treedust, and Raymond Mo
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,7 +47,8 @@ class HTTPClient(object):
         return None
 
     def get_body(self, data):
-        return None
+        # lines = data.splitlines()
+        return data.split('')[-1]
     
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
@@ -67,7 +68,32 @@ class HTTPClient(object):
                 done = not part
         return buffer.decode('utf-8')
 
+
     def GET(self, url, args=None):
+        #TODO: receive message, print, and return in HTTPResponse object
+        urlParsed = urllib.parse.urlparse(url)
+        host = urlParsed.hostname
+        port = urlParsed.port
+
+
+        # build HTTP request message
+        requestLine = f"GET {urlParsed.path} HTTP/1.1\r\n"
+        reqHeaders = [
+            f'Host: {host}:{port}',
+            f'Accept: text/html',
+            f'Connection: keep-alive',
+            f'Upgrade-Insecure-Requests: 1',
+        ]
+        reqMessage = requestLine + '\r\n'.join(reqHeaders) + '\r\n\r\n'
+        
+        # connect and send the request message
+        self.connect(host, port)
+        self.sendall(reqMessage)
+
+        # receive the response
+        recvData = self.recvall(self.socket)
+        
+
         code = 500
         body = ""
         return HTTPResponse(code, body)
