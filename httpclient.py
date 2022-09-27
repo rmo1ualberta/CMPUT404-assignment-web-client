@@ -41,14 +41,32 @@ class HTTPClient(object):
         return None
 
     def get_code(self, data):
-        return None
+        validCodes = [200, 404]
+
+
+        lines = data.splitlines()
+        resLine = lines[0].split(' ')                 # split response line into array, e.g. ['HTTP/1.1', '301', 'Moved', 'Permanently\r\n'] 
+        code = None
+        for item in resLine:
+            if item.isdigit():
+                code = int(item)
+                break
+        
+        if code == None:
+            print("ERROR: Status code was not found in the response line")
+            sys.exit(1)
+        
+        return code
+
 
     def get_headers(self,data):
         return None
 
     def get_body(self, data):
-        # lines = data.splitlines()
-        return data.split('')[-1]
+        lines = data.splitlines()
+        bodyLines = lines[lines.index('')+1:]
+        body = '\r\n'.join(bodyLines)
+        return body
     
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
@@ -92,10 +110,11 @@ class HTTPClient(object):
 
         # receive the response
         recvData = self.recvall(self.socket)
-        
+        self.close()
+        print(recvData)
 
-        code = 500
-        body = ""
+        code = self.get_code(recvData)
+        body = self.get_body(recvData)
         return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
