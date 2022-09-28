@@ -205,7 +205,6 @@ class TestHTTPClient(unittest.TestCase):
         self.assertTrue(req.code == 200,"Code is %s but I wanted a 200 OK" % req.code)
 
         
-        
     # consider disabling this test until everything else works
     def testInternetGets(self):
         '''Test HTTP Get in the wild, these webservers are far less
@@ -224,8 +223,8 @@ class TestHTTPClient(unittest.TestCase):
             except Exception as e:
                 print("An Exception was thrown for %s" % url)
                 self.assertTrue( False, "An Exception was thrown for %s %s" % (url,e))
-            self.assertTrue(req != None, "None Returned! %s" % url)
-            self.assertTrue(req.code == 200 or 
+                self.assertTrue(req != None, "None Returned! %s" % url)
+                self.assertTrue(req.code == 200 or 
                             req.code == 301 or
                             req.code == 302,
                             "Code: %s for %s" % (req.code, url))

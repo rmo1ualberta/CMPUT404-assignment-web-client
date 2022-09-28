@@ -24,6 +24,9 @@ import re
 # you may use urllib to encode data appropriately
 import urllib.parse
 
+TCP_PORT = 80
+HTTP_VER = 'HTTP/1.1'
+
 def help():
     print("httpclient.py [GET/POST] [URL]\n")
 
@@ -36,14 +39,26 @@ class HTTPClient(object):
     #def get_host_port(self,url):
 
     def connect(self, host, port):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((host, port))
+        try:
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            if port == None:            # if port isn't defined, default to TCP port 80
+                port = 80
+            self.socket.connect((host, port))
+        except Exception as e:
+            print(f'Failed to create and connect socket to host {host} at port {port}. {e}')
+            sys.exit()
+        print(f"Socket connected to {host} at port {port}.")
         return None
 
     def get_code(self, data):
-        validCodes = [200, 404]
+        """Gets the status code from a message
 
+        Args:
+            data (str): The message to extract the status code from
 
+        Returns:
+            code (int): The status code
+        """
         lines = data.splitlines()
         resLine = lines[0].split(' ')                 # split response line into array, e.g. ['HTTP/1.1', '301', 'Moved', 'Permanently\r\n'] 
         code = None
@@ -55,6 +70,8 @@ class HTTPClient(object):
         if code == None:
             print("ERROR: Status code was not found in the response line")
             sys.exit(1)
+
+        # ideally we check if the code is an actual HTTP status code
         
         return code
 
@@ -86,23 +103,110 @@ class HTTPClient(object):
                 done = not part
         return buffer.decode('utf-8')
 
+    def parse_url(self, url):
+        """Given the url, parses it using urllib.parse, and returns
 
-    def GET(self, url, args=None):
-        #TODO: receive message, print, and return in HTTPResponse object
+        Args:
+            url (str)): The URL string to be parsed
+
+        Returns:
+            host (str), port (int), path (str): Straightforward.
+        """
         urlParsed = urllib.parse.urlparse(url)
         host = urlParsed.hostname
         port = urlParsed.port
+        path = urlParsed.path
+        
+        return host, port, path
 
+    def build_http_req(self, method, host, port, path, reqBody=''):
+        """Builds a HTTP request message
+
+        Args:
+            method (str): The request method (e.g. GET, POST)
+            host (str): The host name
+            port (int): The port used to connect to the host
+            path (str): The requested path
+            reqBody (str, optional): The request message's entity body. Defaults to ''.
+
+        Returns:
+            reqMessage (str): The built HTTP request message
+        """
+        # build HTTP request message
+        requestLine = f"{method} {path} {HTTP_VER}\r\n"
+        reqHeaders = [
+            f'Accept: */*',
+            f'Connection: close',
+            f'Content-Length: {len(reqBody)}',
+            f'Upgrade-Insecure-Requests: 1',        # HTTPS GANG
+        ]
+        # for a cleaner looking host header
+        if port == None:
+            reqHeaders.append(f'Host: {host}')
+        else:
+            reqHeaders.append(f'Host: {host}:{port}')
+
+        # add content-type if post
+        if method == 'POST':
+            reqHeaders.append(f'Content-Type: application/x-www-form-urlencoded')
+            
+        reqMessage = requestLine + '\r\n'.join(reqHeaders) + '\r\n\r\n' + reqBody
+
+        return reqMessage
+    def GET(self, url, args=None):
+        """Handles sending GET requests
+
+        Args:
+            url (str): A URL to GET from
+            args (dic, optional): Optional arguments (used in POST to send data). Defaults to None.
+
+        Returns:
+            A HTTPResponse object containing the response code and body
+        """
+        host, port, path = self.parse_url(url)
+        
+        if len(path) == 0:                          # for cases where / is not specified at the end
+            path = '/'
+        reqMessage = self.build_http_req('GET', host, port, path)
+        
+        # connect and send the request message
+        self.connect(host, port)
+        self.sendall(reqMessage)
+        # receive the response
+        recvData = self.recvall(self.socket)
+        self.close()
+        print(recvData)
+
+        code = self.get_code(recvData)
+        body = self.get_body(recvData)
+        return HTTPResponse(code, body)
+
+    def POST(self, url, args=None):
+        """Handles sending POST requests
+
+        Args:
+            url (str): A URL to POST to
+            args (dic, optional): Data that will be sent to the requested host. Defaults to None.
+
+        Returns:
+            A HTTPResponse object containing the response code and body
+        """
+        host, port, path = self.parse_url(url)
 
         # build HTTP request message
-        requestLine = f"GET {urlParsed.path} HTTP/1.1\r\n"
-        reqHeaders = [
-            f'Host: {host}:{port}',
-            f'Accept: text/html',
-            f'Connection: keep-alive',
-            f'Upgrade-Insecure-Requests: 1',
-        ]
-        reqMessage = requestLine + '\r\n'.join(reqHeaders) + '\r\n\r\n'
+        requestLine = f"POST {path} HTTP/1.1\r\n"
+
+        # build the body by iterating over args dictionary
+        reqBody = ''
+        n=1
+        if args != None:
+            for key in args.keys():
+                reqBody += f'{key}={args[key]}'
+                if n != len(args.keys()):          # if not the last key, append &
+                    reqBody += '&'
+                n += 1
+
+        reqMessage = self.build_http_req('POST', host, port, path, reqBody)
         
         # connect and send the request message
         self.connect(host, port)
@@ -115,11 +219,6 @@ class HTTPClient(object):
 
         code = self.get_code(recvData)
         body = self.get_body(recvData)
-        return HTTPResponse(code, body)
-
-    def POST(self, url, args=None):
-        code = 500
-        body = ""
         return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
