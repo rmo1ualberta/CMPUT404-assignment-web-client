@@ -123,7 +123,7 @@ class HTTPClient(object):
         
         return host, port, path
 
-    def build_http_req(self, method, host, port, path, reqBody=''):
+    def build_http_req(self, method, host, port, path, reqBody, query=''):
         """Builds a HTTP request message
 
         Args:
@@ -137,7 +137,10 @@ class HTTPClient(object):
             reqMessage (str): The built HTTP request message
         """
         # build HTTP request message
-        requestLine = f"{method} {path} {HTTP_VER}\r\n"
+        if method == "GET":
+            requestLine = f"{method} {path}{query} {HTTP_VER}\r\n"
+        else:
+            requestLine = f"{method} {path} {HTTP_VER}\r\n"
         reqHeaders = [
             f'Accept: */*',
             f'Connection: close',
@@ -152,7 +155,7 @@ class HTTPClient(object):
             reqHeaders.append(f'Host: {host}:{port}')
 
         # add content-type if post
-        if len(reqBody) != 0:
+        if method == "POST":
             reqHeaders.append(f'Content-Type: application/x-www-form-urlencoded')
             
         reqMessage = requestLine + '\r\n'.join(reqHeaders) + '\r\n\r\n' + reqBody
@@ -186,10 +189,10 @@ class HTTPClient(object):
             path = '/'
         
         # build the query if exists
-        reqBody = self.build_body(args)
-        if len(reqBody) != 0:
-            reqBody = '?' + reqBody
-        reqMessage = self.build_http_req('GET', host, port, path, reqBody)
+        query = self.build_body(args)
+        if len(query) != 0:
+            query = '?' + query
+        reqMessage = self.build_http_req('GET', host, port, path, '', query)
         
         # connect and send the request message
         self.connect(host, port)
