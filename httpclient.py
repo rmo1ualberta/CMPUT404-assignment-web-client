@@ -77,7 +77,11 @@ class HTTPClient(object):
 
 
     def get_headers(self,data):
-        return None
+        # What use does this have????
+        lines = data.splitlines()
+        headerLines = lines[1:lines.index('')]
+        headers = '\r\n'.join(headerLines)
+        return headers
 
     def get_body(self, data):
         lines = data.splitlines()
@@ -139,6 +143,7 @@ class HTTPClient(object):
             f'Connection: close',
             f'Content-Length: {len(reqBody)}',
             f'Upgrade-Insecure-Requests: 1',        # HTTPS GANG
+            f'Server: python'
         ]
         # for a cleaner looking host header
         if port == None:
@@ -147,18 +152,30 @@ class HTTPClient(object):
             reqHeaders.append(f'Host: {host}:{port}')
 
         # add content-type if post
-        if method == 'POST':
+        if len(reqBody) != 0:
             reqHeaders.append(f'Content-Type: application/x-www-form-urlencoded')
             
         reqMessage = requestLine + '\r\n'.join(reqHeaders) + '\r\n\r\n' + reqBody
 
         return reqMessage
+
+    def build_body(self, args):
+        reqBody = ''
+        n=1
+        if args != None:
+            for key in args.keys():
+                reqBody += f'{key}={args[key]}'
+                if n != len(args.keys()):          # if not the last key, append &
+                    reqBody += '&'
+                n += 1
+        return reqBody
+
     def GET(self, url, args=None):
         """Handles sending GET requests
 
         Args:
             url (str): A URL to GET from
-            args (dic, optional): Optional arguments (used in POST to send data). Defaults to None.
+            args (dic, optional): Optional arguments to send as a query. Defaults to None.
 
         Returns:
             A HTTPResponse object containing the response code and body
@@ -167,7 +184,12 @@ class HTTPClient(object):
         
         if len(path) == 0:                          # for cases where / is not specified at the end
             path = '/'
-        reqMessage = self.build_http_req('GET', host, port, path)
+        
+        # build the query if exists
+        reqBody = self.build_body(args)
+        if len(reqBody) != 0:
+            reqBody = '?' + reqBody
+        reqMessage = self.build_http_req('GET', host, port, path, reqBody)
         
         # connect and send the request message
         self.connect(host, port)
@@ -197,14 +219,7 @@ class HTTPClient(object):
         requestLine = f"POST {path} HTTP/1.1\r\n"
 
         # build the body by iterating over args dictionary
-        reqBody = ''
-        n=1
-        if args != None:
-            for key in args.keys():
-                reqBody += f'{key}={args[key]}'
-                if n != len(args.keys()):          # if not the last key, append &
-                    reqBody += '&'
-                n += 1
+        reqBody = self.build_body(args)
 
         reqMessage = self.build_http_req('POST', host, port, path, reqBody)
         
