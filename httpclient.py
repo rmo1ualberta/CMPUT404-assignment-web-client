@@ -137,7 +137,7 @@ class HTTPClient(object):
             reqMessage (str): The built HTTP request message
         """
         # build HTTP request message
-        if method == "GET":
+        if method == "GET" and query != '':
             requestLine = f"{method} {path}{query} {HTTP_VER}\r\n"
         else:
             requestLine = f"{method} {path} {HTTP_VER}\r\n"
@@ -165,16 +165,16 @@ class HTTPClient(object):
 
 
     # deprecated: used urllib.parse.urlencode instead for handling of special characters
-    # def build_body(self, args):
-    #     reqBody = ''
-    #     n=1
-    #     if args != None:
-    #         for key in args.keys():
-    #             reqBody += f'{key}={args[key]}'
-    #             if n != len(args.keys()):          # if not the last key, append &
-    #                 reqBody += '&'
-    #             n += 1
-    #     return reqBody
+    def build_body(self, args):
+        reqBody = ''
+        n=1
+        if args != None:
+            for key in args.keys():
+                reqBody += f'{key}={args[key]}'
+                if n != len(args.keys()):          # if not the last key, append &
+                    reqBody += '&'
+                n += 1
+        return reqBody
 
     def GET(self, url, args=None):
         """Handles sending GET requests
@@ -225,7 +225,7 @@ class HTTPClient(object):
         host, port, path = self.parse_url(url)
         
 
-        # build the body by iterating over args dictionary
+        # build the body 
         reqBody = ''
         if args != None:
             reqBody = urllib.parse.urlencode(args)
