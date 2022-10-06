@@ -141,10 +141,11 @@ class HTTPClient(object):
             requestLine = f"{method} {path}{query} {HTTP_VER}\r\n"
         else:
             requestLine = f"{method} {path} {HTTP_VER}\r\n"
+
         reqHeaders = [
             f'Accept: */*',
             f'Connection: close',
-            f'Content-Length: {len(reqBody)}',
+            f'Content-Length: {self.utf8len(reqBody)}',
             f'Upgrade-Insecure-Requests: 1',        # HTTPS GANG
             f'Server: python'
         ]
@@ -162,16 +163,18 @@ class HTTPClient(object):
 
         return reqMessage
 
-    def build_body(self, args):
-        reqBody = ''
-        n=1
-        if args != None:
-            for key in args.keys():
-                reqBody += f'{key}={args[key]}'
-                if n != len(args.keys()):          # if not the last key, append &
-                    reqBody += '&'
-                n += 1
-        return reqBody
+
+    # deprecated: used urllib.parse.urlencode instead for handling of special characters
+    # def build_body(self, args):
+    #     reqBody = ''
+    #     n=1
+    #     if args != None:
+    #         for key in args.keys():
+    #             reqBody += f'{key}={args[key]}'
+    #             if n != len(args.keys()):          # if not the last key, append &
+    #                 reqBody += '&'
+    #             n += 1
+    #     return reqBody
 
     def GET(self, url, args=None):
         """Handles sending GET requests
@@ -184,15 +187,18 @@ class HTTPClient(object):
             A HTTPResponse object containing the response code and body
         """
         host, port, path = self.parse_url(url)
-        
+
+        # build query if it exists
+        query = ''
+        if args != None:
+            query = urllib.parse.urlencode(args)
+            query = '?' + query
+
         if len(path) == 0:                          # for cases where / is not specified at the end
             path = '/'
         
-        # build the query if exists
-        query = self.build_body(args)
-        if len(query) != 0:
-            query = '?' + query
         reqMessage = self.build_http_req('GET', host, port, path, '', query)
+        print('\n\n'+reqMessage)
         
         # connect and send the request message
         self.connect(host, port)
@@ -217,12 +223,13 @@ class HTTPClient(object):
             A HTTPResponse object containing the response code and body
         """
         host, port, path = self.parse_url(url)
-
-        # build HTTP request message
-        requestLine = f"POST {path} HTTP/1.1\r\n"
+        
 
         # build the body by iterating over args dictionary
-        reqBody = self.build_body(args)
+        reqBody = ''
+        if args != None:
+            reqBody = urllib.parse.urlencode(args)
+
 
         reqMessage = self.build_http_req('POST', host, port, path, reqBody)
         
@@ -238,6 +245,18 @@ class HTTPClient(object):
         code = self.get_code(recvData)
         body = self.get_body(recvData)
         return HTTPResponse(code, body)
+
+    def utf8len(self, s):
+        """ Gets the length of a string in bytes.
+        Ref: https://stackoverflow.com/questions/30686701/python-get-size-of-string-in-bytes
+
+        Args:
+            s (string): The string to get the length of
+
+        Returns:
+            The length of the given string in bytes
+        """
+        return len(s.encode('utf-8'))
 
     def command(self, url, command="GET", args=None):
         if (command == "POST"):
