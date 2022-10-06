@@ -105,7 +105,14 @@ class HTTPClient(object):
                 buffer.extend(part)
             else:
                 done = not part
-        return buffer.decode('utf-8')
+        try:
+            res = buffer.decode('utf-8')        # It seems that google.com sends a response that does not decode properly...latin-1 works though.
+        except:
+            res = buffer.decode('latin-1')
+        finally:
+            return res     
+        
+
 
     def parse_url(self, url):
         """Given the url, parses it using urllib.parse, and returns
